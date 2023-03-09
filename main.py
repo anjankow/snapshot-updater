@@ -16,6 +16,8 @@ def main():
     args = parser.parse_args()
     projectPath = str(args.projPath)
     filePath = str(args.file)
+    if filePath is None:
+        filePath = ''
     # update function expects relative package path,
     # we will subtract the project base path from it
     absolutePkgPath = str(args.packagePath)
