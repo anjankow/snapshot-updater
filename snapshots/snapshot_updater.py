@@ -7,6 +7,42 @@ import os
 import getpass
 import subprocess
 
+# Updates snapshots in the given package.
+# Works only for snapshots created by https://github.com/allaboutapps/go-starter/blob/master/internal/test/helper_snapshot.go
+# Changes the snapshotter's `Save` function to `SaveU` and runs the tests to update corresponding tests.
+# Then changes it back to `Save` and runs the tests again.
+# projectBasePath: absolute path of the project
+# packageRelPath: package path relative to the project base path, for example `internal/package-name`
+# filePath: when given, only snapshots of the tests from this file will be updated. Should be an absolute path.
+def update(projectBasePath: str, packageRelPath: str, filePath: str='', verbose: bool=False):
+    goPath = getGoPath()
+    modulePackagePath = getModulePackagePath(projectBasePath, packageRelPath)
+    absPackagePath = os.path.join(projectBasePath, packageRelPath)
+
+    print('Updating snapshots...')
+    # set snaphotter mode to UPDATE (SaveU)
+    setSnapshotterMode(True, absPackagePath, filePath)
+
+    # run tests to update the snapshots
+    runTests(goPath, projectBasePath, modulePackagePath, filePath)
+    # tests should fail because of updated snapshots
+
+    print('Reverting test files changes...')
+    # now unset UPDATE mode (set back to Save)
+    setSnapshotterMode(False, absPackagePath, filePath)
+
+    print('Running the tests again...')
+    # and run the tests again
+    runTests(goPath, projectBasePath, modulePackagePath, filePath, verbose)
+    # all should pass now
+
+
+def runTests(goPath: str, projectBasePath: str, modulePackagePath: str, filePath: str, verbose=True):
+    if filePath == '':
+        runPackageTests(goPath, projectBasePath, modulePackagePath, verbose)
+    else:
+        runFileTests(goPath, projectBasePath, modulePackagePath, filePath, verbose)
+
 
 # Finds all test names in a given file
 # Warning: test names must conform to the regex:
@@ -165,40 +201,3 @@ def setSnapshotterMode(update: bool, absPackagePath: str, filePath=''):
                     before = f'.{variants[abs(replacementVariant-1)]}('
                     line = line.replace(before, after )
                 f.write(line + '\n')
-
-
-def runTests(goPath: str, projectBasePath: str, modulePackagePath: str, filePath: str, verbose=True):
-    if filePath == '':
-        runPackageTests(goPath, projectBasePath, modulePackagePath)
-    else:
-        runFileTests(goPath, projectBasePath, modulePackagePath, filePath)
-
-def updateSnapshots(packageRelPath: str, projectBasePath: str,filePath: str=''):
-    goPath = getGoPath()
-    modulePackagePath = getModulePackagePath(projectBasePath, packageRelPath)
-    absPackagePath = os.path.join(projectBasePath, packageRelPath)
-
-    print('Updating snapshots...')
-    # set snaphotter mode to UPDATE (SaveU)
-    setSnapshotterMode(True, absPackagePath, filePath)
-
-    # run tests to update the snapshots
-    runTests(goPath, projectBasePath, modulePackagePath, filePath)
-    # tests should fail because of updated snapshots
-
-    print('Reverting test files changes...')
-    # now unset UPDATE mode (set back to Save)
-    setSnapshotterMode(False, absPackagePath, filePath)
-
-    print('Running the tests again...')
-    # and run the tests again
-    runTests(goPath, projectBasePath, modulePackagePath, filePath)
-    # all should pass now
-
-
-
-filePath = "??"
-packageRelPath = "??"
-projectBasePath="??"
-
-updateSnapshots(packageRelPath, projectBasePath, filePath)
