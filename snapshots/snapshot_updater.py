@@ -9,7 +9,7 @@ import subprocess
 
 # Updates snapshots in the given package.
 # Works only for snapshots created by https://github.com/allaboutapps/go-starter/blob/master/internal/test/helper_snapshot.go
-# Changes the snapshotter's `Save` function to `SaveU` and runs the tests to update corresponding tests.
+# Changes the snapshotter's `Save` function to `SaveU` and runs the tests to update corresponding snapshots.
 # Then changes it back to `Save` and runs the tests again.
 # projectBasePath: absolute path of the project
 # packageRelPath: package path relative to the project base path, for example `internal/package-name`
