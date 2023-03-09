@@ -153,20 +153,32 @@ def setSnapshotterMode(update: bool, absPackagePath: str, filePath=''):
                 f.write(line + '\n')
 
 
+def runTests(goPath: str, projectBasePath: str, modulePackagePath: str, filePath: str, verbose=True):
+    if filePath == '':
+        runPackageTests(goPath, projectBasePath, modulePackagePath)
+    else:
+        runFileTests(goPath, projectBasePath, modulePackagePath, filePath)
+
+def updateSnapshots(packageRelPath: str, projectBasePath: str,filePath: str=''):
+    goPath = getGoPath()
+    modulePackagePath = getModulePackagePath(projectBasePath, packageRelPath)
+    absPackagePath = os.path.join(projectBasePath, packageRelPath)
+
+    # set snaphotter mode to UPDATE (SaveU)
+    setSnapshotterMode(True, absPackagePath, filePath)
+
+    # run tests to update the snapshots
+    runTests(goPath, projectBasePath, modulePackagePath, filePath)
+    # tests should fail because of updated snapshots
+
+    # now unset UPDATE mode (set back to Save)
+    setSnapshotterMode(False, absPackagePath, filePath)
+    # and run the tests again
+    runTests(goPath, projectBasePath, modulePackagePath, filePath)
+    # all should pass now
+
+
+
 filePath = "??"
 packageRelPath = "??"
 projectBasePath="??"
-
-goPath = getGoPath()
-modulePackagePath = getModulePackagePath(projectBasePath, packageRelPath)
-absPackagePath = os.path.join(projectBasePath, packageRelPath)
-
-print(modulePackagePath)
-
-setSnapshotterMode(True, absPackagePath, filePath)
-
-# runFileTests(goPath, projectBasePath, modulePackagePath, filePath)
-# runPackageTests(goPath, projectBasePath, modulePackagePath)
-
-
-
