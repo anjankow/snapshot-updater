@@ -1,6 +1,5 @@
-import sys
 import argparse
-import snapshots
+import snapshots.snapshot_updater as su
 
 def main():
     
@@ -13,9 +12,8 @@ def main():
                     help='Absolute path of a test file. If given, only tests belonging to this file will be processed.')
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
 
-    print(sys.argv)
     args = parser.parse_args()
-    print(args)
+    su.update(projectBasePath=args.projPath, packageRelPath=args.packagePath, filePath=args.file, verbose=args.verbose)
 
 
 if __name__ == "__main__":
