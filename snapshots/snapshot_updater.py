@@ -15,39 +15,39 @@ import subprocess
 # packageRelPath: package path relative to the project base path, for example `internal/package-name`
 # filePath: when given, only snapshots of the tests from this file will be updated. Should be an absolute path.
 def update(projectBasePath: str, packageRelPath: str, filePath: str='', verbose: bool=False):
-    goPath = getGoPath()
-    modulePackagePath = getModulePackagePath(projectBasePath, packageRelPath)
+    goPath = _getGoPath()
+    modulePackagePath = _getModulePackagePath(projectBasePath, packageRelPath)
     absPackagePath = os.path.join(projectBasePath, packageRelPath)
 
     print('Updating snapshots...')
     # set snaphotter mode to UPDATE (SaveU)
-    setSnapshotterMode(True, absPackagePath, filePath)
+    _setSnapshotterMode(True, absPackagePath, filePath)
 
     # run tests to update the snapshots
-    runTests(goPath, projectBasePath, modulePackagePath, filePath)
+    _runTests(goPath, projectBasePath, modulePackagePath, filePath)
     # tests should fail because of updated snapshots
 
     print('Reverting test files changes...')
     # now unset UPDATE mode (set back to Save)
-    setSnapshotterMode(False, absPackagePath, filePath)
+    _setSnapshotterMode(False, absPackagePath, filePath)
 
     print('Running the tests again...')
     # and run the tests again
-    runTests(goPath, projectBasePath, modulePackagePath, filePath, verbose)
+    _runTests(goPath, projectBasePath, modulePackagePath, filePath, verbose)
     # all should pass now
 
 
-def runTests(goPath: str, projectBasePath: str, modulePackagePath: str, filePath: str, verbose=True):
+def _runTests(goPath: str, projectBasePath: str, modulePackagePath: str, filePath: str, verbose=True):
     if filePath == '':
-        runPackageTests(goPath, projectBasePath, modulePackagePath, verbose)
+        _runPackageTests(goPath, projectBasePath, modulePackagePath, verbose)
     else:
-        runFileTests(goPath, projectBasePath, modulePackagePath, filePath, verbose)
+        _runFileTests(goPath, projectBasePath, modulePackagePath, filePath, verbose)
 
 
 # Finds all test names in a given file
 # Warning: test names must conform to the regex:
 #   '^func (\w+).*testing.T'
-def findTestNames(filePath: str) ->List[str]:
+def _findTestNames(filePath: str) ->List[str]:
     with open(filePath, 'r') as f:
         testNames = []
         for line in f:
@@ -67,8 +67,8 @@ def findTestNames(filePath: str) ->List[str]:
 
 # Returns package path as required by the go test command
 # packageRelPath: package path relative to the project base path
-def getModulePackagePath(projectBasePath: str, packageRelPath: str) -> str:
-    moduleName = getGoModuleName(projectBasePath)
+def _getModulePackagePath(projectBasePath: str, packageRelPath: str) -> str:
+    moduleName = _getGoModuleName(projectBasePath)
     if moduleName.endswith('/'):
         moduleName = moduleName.rstrip('/')
     if packageRelPath.startswith('/'):
@@ -76,7 +76,7 @@ def getModulePackagePath(projectBasePath: str, packageRelPath: str) -> str:
     return moduleName + '/' + packageRelPath
 
 # Gets go module name from go.mod file
-def getGoModuleName(projectBasePath: str) -> str:
+def _getGoModuleName(projectBasePath: str) -> str:
     with open(os.path.join(projectBasePath, 'go.mod'), 'r') as f:
         for line in f:
             if line.startswith('module'):
@@ -93,9 +93,9 @@ def getGoModuleName(projectBasePath: str) -> str:
 # projectBasePath: absolute directory of the go.mod file
 # modulePackagePath: package path relative to the projectBasePath prefixed with go module name
 # filePath: absolute path of the file
-def runFileTests(goPath: str, projectBasePath: str, modulePackagePath: str, filePath: str, verbose=True):
+def _runFileTests(goPath: str, projectBasePath: str, modulePackagePath: str, filePath: str, verbose=True):
     # get test names from the file
-    testNames = findTestNames(filePath)
+    testNames = _findTestNames(filePath)
     testNamesStr = ""
     for name in testNames:
         testNamesStr+=name + '|'
@@ -116,7 +116,7 @@ def runFileTests(goPath: str, projectBasePath: str, modulePackagePath: str, file
 # goPath: path to go executable
 # projectBasePath: absolute directory of the go.mod file
 # modulePackagePath: package path relative to the projectBasePath prefixed with go module name
-def runPackageTests(goPath: str, projectBasePath: str, modulePackagePath: str, verbose=True):
+def _runPackageTests(goPath: str, projectBasePath: str, modulePackagePath: str, verbose=True):
     command = [f"{goPath}", "test","-v", f"{modulePackagePath}"]
     if not verbose:
          command.remove("-v")
@@ -127,7 +127,7 @@ def runPackageTests(goPath: str, projectBasePath: str, modulePackagePath: str, v
 
 # takes go directory from PATH,
 # returns path to the executable
-def getGoPath()-> str:
+def _getGoPath()-> str:
     PATH = os.getenv('PATH')
     searchStartIdx = 0
     while searchStartIdx < len(PATH):
@@ -168,7 +168,7 @@ def getGoPath()-> str:
 # If update param is true, this function finds all occurences of `.Save(t, [\w0-9]+)` and replaces it with `SaveU`.
 # If set to false, `SaveU` is replaced by `Save`.
 # The occurences are found within the given file or in the entire package, if file path is not empty.
-def setSnapshotterMode(update: bool, absPackagePath: str, filePath=''):
+def _setSnapshotterMode(update: bool, absPackagePath: str, filePath=''):
     files = []
     if filePath == '':
         for file in glob.glob(os.path.join(absPackagePath, '*_test.go')):
