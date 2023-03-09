@@ -33,7 +33,11 @@ def findTestNames(filePath: str) ->List[str]:
 # packageRelPath: package path relative to the project base path
 def getModulePackagePath(projectBasePath: str, packageRelPath: str) -> str:
     moduleName = getGoModuleName(projectBasePath)
-    return moduleName.removesuffix('/') + '/' + packageRelPath.removeprefix('/')
+    if moduleName.endswith('/'):
+        moduleName = moduleName.rstrip('/')
+    if packageRelPath.startswith('/'):
+        packageRelPath = packageRelPath.lstrip('/')
+    return moduleName + '/' + packageRelPath
 
 # Gets go module name from go.mod file
 def getGoModuleName(projectBasePath: str) -> str:
@@ -59,14 +63,14 @@ def runFileTests(goPath: str, projectBasePath: str, modulePackagePath: str, file
     testNamesStr = ""
     for name in testNames:
         testNamesStr+=name + '|'
-    testNamesStr= testNamesStr.removesuffix('|')
+    testNamesStr= testNamesStr.rstrip('|')
     
     # prepare command
     command = [f"{goPath}", "test","-v", "-run", f"^({testNamesStr})$", f"{modulePackagePath}"]
     if not verbose:
          command.remove("-v")
 
-    p = subprocess.Popen(command, cwd=projectBasePath, user=getpass.getuser(), group=os.getgid())
+    p = subprocess.Popen(command, cwd=projectBasePath)
     p.wait()
 
 
@@ -81,7 +85,7 @@ def runPackageTests(goPath: str, projectBasePath: str, modulePackagePath: str, v
     if not verbose:
          command.remove("-v")
 
-    p = subprocess.Popen(command, cwd=projectBasePath, user=getpass.getuser(), group=os.getgid())
+    p = subprocess.Popen(command, cwd=projectBasePath)
     p.wait()
 
 
@@ -89,26 +93,36 @@ def runPackageTests(goPath: str, projectBasePath: str, modulePackagePath: str, v
 # returns path to the executable
 def getGoPath()-> str:
     PATH = os.getenv('PATH')
-    matchedIdx = PATH.find('go/bin')
-    if matchedIdx < 0:
-        print('Error: can\'t find go executable in the PATH')
-        return ''
+    searchStartIdx = 0
+    while searchStartIdx < len(PATH):
 
-    delimiter = ':'
-    startIdx = PATH.rfind(delimiter, 0, matchedIdx)
-    if startIdx < 0:
-        startIdx = 0
-    else:
-        # path will start with ':' otherwise
-        startIdx += 1
+        matchedIdx = PATH.find('go/bin', searchStartIdx)
 
-    endIdx = PATH.find(delimiter, startIdx+1)
-    if endIdx < 0:
-        endIdx = len(PATH)
+        if matchedIdx < 0:
+            print('Error: can\'t find go executable in the PATH')
+            return ''
 
-    goPath = PATH[startIdx:endIdx]
-    return os.path.join(goPath,'go')
+        delimiter = ':'
+        startIdx = PATH.rfind(delimiter, 0, matchedIdx)
+        if startIdx < 0:
+            startIdx = 0
+        else:
+            # path will start with ':' otherwise
+            startIdx += 1
 
+        endIdx = PATH.find(delimiter, startIdx+1)
+        if endIdx < 0:
+            endIdx = len(PATH)
+
+        goDir = PATH[startIdx:endIdx]
+        goPath = os.path.join(goDir,'go')
+        if os.path.exists(goPath):
+            # found! we can return
+            return goPath
+
+        # path doesn't exist? continue checking other PATH entries
+        searchStartIdx = matchedIdx + 1
+        continue
 
 
 # Snapshotter https://github.com/allaboutapps/go-starter/blob/master/internal/test/helper_snapshot.go
@@ -132,7 +146,7 @@ def setSnapshotterMode(update: bool, absPackagePath: str, filePath=''):
         replacementVariant = 1
     else:
         replacementVariant = 0
-    
+
     # \.Save\(t, [\w0-9]+\) or \.SaveU\(t, [\w0-9]+\)
     pattern = f'\.{variants[abs(replacementVariant-1)]}\(t, [\w0-9]+\)'
 
@@ -141,7 +155,7 @@ def setSnapshotterMode(update: bool, absPackagePath: str, filePath=''):
         content = []
         with open(file, 'r') as f:
             content = str(f.read()).splitlines()
-        
+
         with open(file, 'w')as f:
             f.truncate()
             for line in content:
@@ -164,6 +178,7 @@ def updateSnapshots(packageRelPath: str, projectBasePath: str,filePath: str=''):
     modulePackagePath = getModulePackagePath(projectBasePath, packageRelPath)
     absPackagePath = os.path.join(projectBasePath, packageRelPath)
 
+    print('Updating snapshots...')
     # set snaphotter mode to UPDATE (SaveU)
     setSnapshotterMode(True, absPackagePath, filePath)
 
@@ -171,8 +186,11 @@ def updateSnapshots(packageRelPath: str, projectBasePath: str,filePath: str=''):
     runTests(goPath, projectBasePath, modulePackagePath, filePath)
     # tests should fail because of updated snapshots
 
+    print('Reverting test files changes...')
     # now unset UPDATE mode (set back to Save)
     setSnapshotterMode(False, absPackagePath, filePath)
+
+    print('Running the tests again...')
     # and run the tests again
     runTests(goPath, projectBasePath, modulePackagePath, filePath)
     # all should pass now
@@ -182,3 +200,5 @@ def updateSnapshots(packageRelPath: str, projectBasePath: str,filePath: str=''):
 filePath = "??"
 packageRelPath = "??"
 projectBasePath="??"
+
+updateSnapshots(packageRelPath, projectBasePath, filePath)
