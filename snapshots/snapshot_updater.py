@@ -1,39 +1,56 @@
 import glob
-from urllib.parse import urljoin
-from enum import Enum
 import re
 from typing import List
 import os
-import getpass
 import subprocess
 
 # Updates snapshots in the given package.
 # Works only for snapshots created by https://github.com/allaboutapps/go-starter/blob/master/internal/test/helper_snapshot.go
 # Changes the snapshotter's `Save` function to `SaveU` and runs the tests to update corresponding snapshots.
 # Then changes it back to `Save` and runs the tests again.
-# projectBasePath: absolute path of the project
-# packageRelPath: package path relative to the project base path, for example `internal/package-name`
+# projectBaseDir: absolute directory of the project
+# packageDir: absolute directory of the package
 # filePath: when given, only snapshots of the tests from this file will be updated. Should be an absolute path.
-def update(projectBasePath: str, packageRelPath: str, filePath: str='', verbose: bool=False):
+def update(projectBaseDir: str, packageDir: str, filePath: str='', verbose: bool=False):
+
+    if not os.path.isdir(projectBaseDir):
+        print('Project directory doesn\'t exist or is invalid: ', projectBaseDir)
+        exit(1)
+
+    if not os.path.isdir(packageDir):
+        print('Package directory doesn\'t exist or is invalid: ', absolutePkgPath)
+        exit(1)
+    # relative package path is <go module name><package path relative to project base path>
+    # for example `internal/util/db`
+    relativePkgPath = packageDir.replace(projectBaseDir, '')
+    print('Package relative path: ', relativePkgPath)
+
+    if filePath != '':
+        if not os.path.isfile(filePath):
+            print('File doesn\'t exist: ', filePath)
+            exit(1)
+        if not filePath.endswith('_test.go'):
+            print('File is not a go test file: ', filePath)
+            exit(1)
+
     goPath = _getGoPath()
-    modulePackagePath = _getModulePackagePath(projectBasePath, packageRelPath)
-    absPackagePath = os.path.join(projectBasePath, packageRelPath)
+    modulePackagePath = _getModulePackagePath(projectBaseDir, relativePkgPath)
 
     print('Updating snapshots...')
     # set snaphotter mode to UPDATE (SaveU)
-    _setSnapshotterMode(True, absPackagePath, filePath)
+    _setSnapshotterMode(True, packageDir, filePath)
 
     # run tests to update the snapshots
-    _runTests(goPath, projectBasePath, modulePackagePath, filePath)
+    _runTests(goPath, projectBaseDir, modulePackagePath, filePath, verbose)
     # tests should fail because of updated snapshots
 
     print('Reverting test files changes...')
     # now unset UPDATE mode (set back to Save)
-    _setSnapshotterMode(False, absPackagePath, filePath)
+    _setSnapshotterMode(False, packageDir, filePath)
 
     print('Running the tests again...')
     # and run the tests again
-    _runTests(goPath, projectBasePath, modulePackagePath, filePath, verbose)
+    _runTests(goPath, projectBaseDir, modulePackagePath, filePath, verbose)
     # all should pass now
 
 
