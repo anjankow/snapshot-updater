@@ -1,6 +1,6 @@
 import os
 import argparse
-import snapshots.snapshot_updater as su
+import src.snapshot_updater as su
 
 def main():
     
