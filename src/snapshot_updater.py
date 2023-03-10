@@ -18,7 +18,7 @@ def update(projectBaseDir: str, packageDir: str, filePath: str='', verbose: bool
         exit(1)
 
     if not os.path.isdir(packageDir):
-        print('Package directory doesn\'t exist or is invalid: ', absolutePkgPath)
+        print('Package directory doesn\'t exist or is invalid: ', packageDir)
         exit(1)
     # relative package path is <go module name><package path relative to project base path>
     # for example `internal/util/db`
@@ -33,6 +33,7 @@ def update(projectBaseDir: str, packageDir: str, filePath: str='', verbose: bool
             print('File is not a go test file: ', filePath)
             exit(1)
 
+    print()
     goPath = _getGoPath()
     modulePackagePath = _getModulePackagePath(projectBaseDir, relativePkgPath)
 
@@ -44,10 +45,12 @@ def update(projectBaseDir: str, packageDir: str, filePath: str='', verbose: bool
     _runTests(goPath, projectBaseDir, modulePackagePath, filePath, verbose)
     # tests should fail because of updated snapshots
 
+    print()
     print('Reverting test files changes...')
     # now unset UPDATE mode (set back to Save)
     _setSnapshotterMode(False, packageDir, filePath)
 
+    print()
     print('Running the tests again...')
     # and run the tests again
     _runTests(goPath, projectBaseDir, modulePackagePath, filePath, verbose)
@@ -193,6 +196,10 @@ def _setSnapshotterMode(update: bool, absPackagePath: str, filePath=''):
             files.append(file)
     else:
         files = [filePath]
+
+    if len(files) == 0:
+        print('No go test files found')
+        exit(1)
 
     variants = ['Save', 'SaveU']
     if update:
